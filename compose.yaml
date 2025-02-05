@@ -1,8 +1,6 @@
 services:
   bot:
-    build: .
-    stdin_open: true
-    tty: true
+    image: leaftail/save-from-e621-tg-bot
     env_file:
       - .env
     environment:

@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - DOCKER=true
+      - SAVE_TO_PATH=/usr/bot/images/
+    volumes:
+      - ./docker-images:/usr/bot/images/

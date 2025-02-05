@@ -1,0 +1,26 @@
+{
+	"name": "save-from-e621-tg-bot",
+	"version": "1.0.0",
+	"main": "./src/index.js",
+	"scripts": {
+		"start": "node --env-file=.env ."
+	},
+	"license": "MIT",
+	"packageManager": "pnpm@10.2.0+sha512.0d27364e0139c6aadeed65ada153135e0ca96c8da42123bd50047f961339dc7a758fc2e944b428f52be570d1bd3372455c1c65fa2e7aa0bfbf931190f9552001",
+	"dependencies": {
+		"chalk": "^5.4.1",
+		"envalid": "^8.0.0",
+		"leafy-utils": "^7.1.5",
+		"telegraf": "^4.16.3",
+		"undici": "^7.3.0",
+		"whatwg-url": "^14.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "22",
+		"typescript": "^5.7.3"
+	},
+	"resolutions": {
+		"whatwg-url": "^14.1.0"
+	},
+	"type": "module"
+}

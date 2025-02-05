@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"alwaysStrict": true,
+		"allowJs": true,
+		"checkJs": true,
+
+		"target": "es2022",
+		"lib": ["ES2022"],
+		"module": "NodeNext",
+		"skipLibCheck": true,
+		"allowSyntheticDefaultImports": true,
+
+		"strict": true,
+		"noImplicitAny": true,
+		"noEmit": true
+	},
+	"include": ["src"]
+}

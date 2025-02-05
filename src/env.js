@@ -26,7 +26,7 @@ export const env = envalid.cleanEnv(process.env, {
 		desc: "If e621 is blocked, uses this url as proxy",
 	}),
 	E621_CHECK_INTERVAL: envalid.num({
-		default: 1000 * 5, // hour
+		default: 1000 * 60 * 60, // hour
 		desc: "Interval to check for e621 status. Set 0 to disable",
 	}),
 });

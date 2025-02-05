@@ -1,17 +1,25 @@
 import chalk from "chalk";
 import { bold } from "telegraf/format";
-import { bot } from "./bot.js";
+import { bot } from "./index.js";
 import { env } from "./env.js";
 import { httpGet } from "./fetch.js";
 import { logger } from "./logger.js";
 
-if (env.E621_CHECK_INTERVAL !== 0) {
+if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
 	/** @type {boolean | undefined} */
 	let lastIsAvailable = undefined;
 
 	checkSiteStatus(); // perform initial check
 
-	setInterval(checkSiteStatus, env.E621_CHECK_INTERVAL);
+	// I don't trust set interval with large coooldown, it may not run
+	let lastUpdateTime = Date.now();
+	const cooldown = env.E621_CHECK_INTERVAL_HOURS * 1000 * 60 * 60;
+	setInterval(() => {
+		if (Date.now() - lastUpdateTime > cooldown) {
+			lastUpdateTime = Date.now();
+			checkSiteStatus();
+		}
+	}, 60 * 1000);
 
 	async function checkSiteStatus() {
 		let available = false;

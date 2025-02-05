@@ -1,26 +1,37 @@
 import fs from "node:fs";
 import path from "node:path";
+
+import { Context, Telegraf } from "telegraf";
 import { callbackQuery, message } from "telegraf/filters";
 import format from "telegraf/format";
 import { button } from "telegraf/markup";
-import { bot } from "./bot.js";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
 import { getSavePath, save } from "./save.js";
-import "./status.js";
 
-if (!fs.existsSync(env.SAVE_TO_PATH)) {
-	await fs.promises.mkdir(env.SAVE_TO_PATH, { recursive: true });
-} else {
-	const stat = await fs.promises.stat(env.SAVE_TO_PATH);
+class MyContext extends Context {
+	error(message = "") {
+		if (this.chat?.type === "private") {
+			const text =
+				this.message && "text" in this.message
+					? this.message.text
+					: this.message;
 
-	if (!stat.isDirectory()) {
-		logger.error(`Save to path ${env.SAVE_TO_PATH} is not a directory!`);
-		process.exit();
+			logger.warn(
+				"Username:",
+				this.chat.username,
+				"message:",
+				text,
+				"reply:",
+				message
+			);
+
+			this.reply(message);
+		}
 	}
 }
 
-logger.info("Will save images to", env.SAVE_TO_PATH);
+export const bot = new Telegraf(env.TOKEN, { contextType: MyContext });
 
 bot.on(message("text"), async (ctx) => {
 	if (ctx.chat.type !== "private") return ctx.leaveChat();
@@ -112,3 +123,5 @@ if (env.WEBHOOK_URL) {
 	bot.launch();
 	logger.success("Bot started in long polling mode!");
 }
+
+import("./status.js");

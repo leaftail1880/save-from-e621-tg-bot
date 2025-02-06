@@ -86,7 +86,7 @@ bot.on(message("text"), async (ctx) => {
 			undefined,
 			format.fmt`Saved as ${format.link(
 				format.bold(filename),
-				`${env.SAVE_LINK}${filepath}`
+				`${env.SAVE_LINK}${filename}`
 			)}!`,
 			{
 				reply_markup: {

@@ -1,10 +1,13 @@
-import { fetch, ProxyAgent } from "undici";
+import { socksDispatcher } from "fetch-socks";
+import { Dispatcher, fetch } from "undici";
 import { env } from "./env.js";
 
-const agent =
-	env.E621_PROXY !== "https://e621.net/"
-		? new ProxyAgent(env.E621_PROXY)
-		: undefined;
+/** @type {Dispatcher | undefined} */
+let agent = undefined;
+if (env.E621_PROXY !== "https://e621.net/") {
+	const { host, port } = new URL(env.E621_PROXY);
+	agent = socksDispatcher({ type: 5, host, port: parseInt(port) });
+}
 
 /**
  * @param {string} url

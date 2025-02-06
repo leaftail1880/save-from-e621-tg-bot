@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import chalk from "chalk";
 import { Context, Telegraf } from "telegraf";
 import { callbackQuery, message } from "telegraf/filters";
 import format from "telegraf/format";
@@ -116,6 +117,9 @@ bot.on(callbackQuery("data"), async (ctx) => {
 	}
 });
 
+const { username } = await bot.telegram.getMe();
+logger.info(`Bot token is for @${chalk.bold(username)}`);
+
 if (env.WEBHOOK_URL) {
 	bot.createWebhook({ domain: env.WEBHOOK_URL });
 	logger.success(`Bot started using webhook: ${env.WEBHOOK_URL}`);
@@ -123,5 +127,6 @@ if (env.WEBHOOK_URL) {
 	bot.launch();
 	logger.success("Bot started in long polling mode!");
 }
+
 
 import("./status.js");

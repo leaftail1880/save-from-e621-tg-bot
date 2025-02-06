@@ -1,8 +1,8 @@
 import chalk from "chalk";
-import { bold } from "telegraf/format";
-import { bot } from "./index.js";
+import { bold, fmt } from "telegraf/format";
 import { env } from "./env.js";
 import { httpGet } from "./fetch.js";
+import { bot } from "./index.js";
 import { logger } from "./logger.js";
 
 if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
@@ -56,10 +56,19 @@ if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
 			}
 
 			if (env.USER_ID) {
-				bot.telegram.sendMessage(
-					env.USER_ID,
-					`e621 is ${bold(available ? "available" : "unavailable!")}`
-				);
+				try {
+					await bot.telegram.sendMessage(
+						env.USER_ID,
+						fmt`e621 is ${bold(available ? "available" : "unavailable!")}`
+					);
+				} catch (e) {
+					logger.error(
+						"Unable to send status to the",
+						env.USER_ID,
+						"error:",
+						e
+					);
+				}
 			}
 		}
 	}

@@ -42,6 +42,17 @@ bot.on(message("text"), async (ctx) => {
 		return;
 	}
 
+	if (ctx.message.text === "/start") {
+		logger.success(
+			"New user!",
+			ctx.chat.username ??
+				`${ctx.chat.first_name} ${ctx.chat.last_name ?? "<no lastname>"}, id=${
+					ctx.chat.id
+				}`
+		);
+		return ctx.reply("Rawr~ Forward me a message with static.e621.net link!");
+	}
+
 	const entities = ctx.message.entities?.filter((e) => e.type === "text_link");
 	if (!entities || !entities?.length) {
 		return ctx.error(

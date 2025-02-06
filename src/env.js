@@ -11,6 +11,10 @@ export const env = envalid.cleanEnv(process.env, {
 		docs: "Where to save images to",
 		default: "./images/",
 	}),
+	SAVE_LINK: envalid.url({
+		docs: "Link to image",
+		default: "https://example.com",
+	}),
 
 	USER_ID: envalid.num({
 		default: 0,

@@ -61,7 +61,10 @@ bot.on(message("text"), async (ctx) => {
 	}
 
 	const link = entities.find(
-		(e) => e.type === "text_link" && e.url.includes("static")
+		(e) =>
+			e.type === "text_link" &&
+			e.url.includes("static") &&
+			!e.url.includes("/data/sample/")
 	);
 
 	if (!link) {
@@ -83,7 +86,7 @@ bot.on(message("text"), async (ctx) => {
 			undefined,
 			format.fmt`Saved as ${format.link(
 				format.bold(filename),
-				`https://yourserver.net/${filepath}`
+				`${env.SAVE_LINK}${filepath}`
 			)}!`,
 			{
 				reply_markup: {

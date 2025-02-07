@@ -17,6 +17,6 @@ if (env.E621_PROXY !== "https://e621.net/") {
 export function httpGet(url) {
 	return fetch(url, {
 		dispatcher: agent,
-		signal: AbortSignal.timeout(3000),
+		signal: AbortSignal.timeout(15000),
 	});
 }

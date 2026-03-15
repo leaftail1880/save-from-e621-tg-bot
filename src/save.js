@@ -42,7 +42,7 @@ export function getSavePath(link) {
 		.replace("/", "")
 		.replaceAll("/", "-");
 	
-	const truncatedFilename = filename.substring(0, 5);
+	const truncatedFilename = filename.substring(5);
 	const filepath = path.join(env.SAVE_TO_PATH, truncatedFilename);
 	return { filepath, filename };
 }

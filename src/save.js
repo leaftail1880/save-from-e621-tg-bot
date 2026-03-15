@@ -40,9 +40,9 @@ export function getSavePath(link) {
 	const filename = new URL(link).pathname
 		.replace("/data/", "")
 		.replace("/", "")
-		.substring(5)
-		.replaceAll("/", "-");
+		.replaceAll("/", "-")
+		.substring(5);
 
-	const filepath = path.join(env.SAVE_TO_PATH, truncatedFilename);
+	const filepath = path.join(env.SAVE_TO_PATH, filename);
 	return { filepath, filename };
 }

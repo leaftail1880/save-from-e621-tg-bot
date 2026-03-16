@@ -143,5 +143,7 @@ if (env.WEBHOOK_URL) {
 	logger.success("Bot started in long polling mode!");
 }
 
+process.on("unhandledRejection", e => logger.error("Rejection", e))
+process.on("unhandledException", e => logger.error("Exception", e))
 
 import("./status.js");

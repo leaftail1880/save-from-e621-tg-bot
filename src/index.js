@@ -9,6 +9,7 @@ import { button } from "telegraf/markup";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
 import { getSavePath, save } from "./save.js";
+import { getAgent } "./fetch.js";
 
 class MyContext extends Context {
 	error(message = "") {
@@ -32,7 +33,7 @@ class MyContext extends Context {
 	}
 }
 
-export const bot = new Telegraf(env.TOKEN, { contextType: MyContext });
+export const bot = new Telegraf(env.TOKEN, { contextType: MyContext, agent: getAgent() });
 
 bot.on(message("text"), async (ctx) => {
 	if (ctx.chat.type !== "private") return ctx.leaveChat();

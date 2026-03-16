@@ -11,6 +11,10 @@ if (env.E621_PROXY !== "https://e621.net/") {
 	agent = socksDispatcher({ type: 5, host: hostname, port: parseInt(port) });
 }
 
+export function getAgent() {
+  return agent;
+}
+
 /**
  * @param {string} url
  */

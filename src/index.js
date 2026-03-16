@@ -9,7 +9,7 @@ import { button } from "telegraf/markup";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
 import { getSavePath, save } from "./save.js";
-import { getAgent } "./fetch.js";
+import { getAgent } from "./fetch.js";
 
 class MyContext extends Context {
 	error(message = "") {

@@ -1,4 +1,4 @@
-import { socksDispatcher } from "fetch-socks";
+import { socksDispatcher, setGlobalDispatcher } from "fetch-socks";
 import { Dispatcher, fetch } from "undici";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
@@ -9,6 +9,7 @@ if (env.E621_PROXY !== "https://e621.net/") {
 	const { hostname, port } = new URL(env.E621_PROXY);
 	logger.info(`Using proxy at hostname=${hostname}, port=${port}`);
 	agent = socksDispatcher({ type: 5, host: hostname, port: parseInt(port) });
+	setGlobalDispatcher(agent);
 }
 
 export function getAgent() {

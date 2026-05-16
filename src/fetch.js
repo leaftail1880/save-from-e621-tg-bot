@@ -47,13 +47,24 @@ async function httpGetWithRetry(url, attempt = 1) {
 
 		return res;
 	} catch (err) {
-		if (err.name === "TimeoutError" || err.code === "ETIMEDOUT" || err.type === "system") {
+		const isRetryable =
+			err.name === "TimeoutError" ||
+			err.name === "AbortError" ||
+			err.code === "ETIMEDOUT" ||
+			err.code === "UND_ERR_SOCKET" ||
+			err.code === "ERR_SOCKET_TIMEOUT" ||
+			err.cause?.name === "TimeoutError" ||
+			err.type === "system";
+
+		if (isRetryable) {
 			if (attempt >= MAX_RETRIES) throw err;
 			const delay = attempt * 2000;
-			logger.info(`Request timed out, retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
+			logger.info(`Request failed (${err.name || err.code || err.type}), retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
 			await new Promise(r => setTimeout(r, delay));
 			return httpGetWithRetry(url, attempt + 1);
 		}
+
+		logger.warn(`Non-retryable error: ${err.name || err.code} - ${err.message}`);
 		throw err;
 	}
 }

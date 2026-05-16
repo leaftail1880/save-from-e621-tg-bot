@@ -6,12 +6,10 @@ import { bot } from "./index.js";
 import { logger } from "./logger.js";
 
 if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
-	/** @type {boolean | undefined} */
 	let lastIsAvailable = undefined;
 
-	checkSiteStatus(); // perform initial check
+	await checkSiteStatus();
 
-	// I don't trust set interval with large coooldown, it may not run
 	let lastUpdateTime = Date.now();
 	const cooldown = env.E621_CHECK_INTERVAL_HOURS * 1000 * 60 * 60;
 	setInterval(() => {
@@ -25,19 +23,15 @@ if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
 		let available = false;
 		let error;
 		try {
-			const response = await (
-				await httpGet("https://static1.e621.net/")
-			).text();
-
-			available =
-				response ===
+			const response = await (await httpGet("https://static1.e621.net/")).text();
+			available = response ===
 				"<html>\r\n" +
-					"<head><title>404 Not Found</title></head>\r\n" +
-					"<body>\r\n" +
-					"<center><h1>404 Not Found</h1></center>\r\n" +
-					"<hr><center>nginx</center>\r\n" +
-					"</body>\r\n" +
-					"</html>\r\n";
+				"<head><title>404 Not Found</title></head>\r\n" +
+				"<body>\r\n" +
+				"<center><h1>404 Not Found</h1></center>\r\n" +
+				"<hr><center>nginx</center>\r\n" +
+				"</body>\r\n" +
+				"</html>\r\n";
 		} catch (e) {
 			error = e;
 		}
@@ -50,9 +44,7 @@ if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
 				available ? chalk.greenBright("available!") : chalk.red("unavailable!")
 			);
 			if (error) {
-				logger.error(
-					error instanceof TypeError && error.cause ? error.cause : error
-				);
+				logger.error(error instanceof TypeError && error.cause ? error.cause : error);
 			}
 
 			if (env.USER_ID) {
@@ -62,12 +54,7 @@ if (env.E621_CHECK_INTERVAL_HOURS !== 0) {
 						fmt`e621 is ${bold(available ? "available" : "unavailable!")}`
 					);
 				} catch (e) {
-					logger.error(
-						"Unable to send status to the",
-						env.USER_ID,
-						"error:",
-						e
-					);
+					logger.error("Unable to send status to user", env.USER_ID, "error:", e);
 				}
 			}
 		}

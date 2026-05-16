@@ -35,6 +35,53 @@ class MyContext extends Context {
 
 export const bot = new Telegraf(env.TOKEN, { contextType: MyContext, telegram: { agent: getAgent() } });
 
+bot.catch((err, ctx) => {
+	const msg = err.description || err.message;
+	const code = err.response?.error_code;
+	if (code === 429) {
+		const retryAfter = err.response?.parameters?.retry_after || 5;
+		logger.warn(`Telegram rate limited (retry after ${retryAfter}s)`);
+	} else {
+		logger.error(`Error processing update: ${msg}`);
+	}
+});
+
+async function telegramWithRetry(fn, retries = 3) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			return await fn();
+		} catch (err) {
+			if (err.response?.error_code === 429 && i < retries - 1) {
+				const delay = (err.response.parameters?.retry_after || 5) * 1000;
+				logger.warn(`Telegram 429, waiting ${delay}ms (retry ${i + 1}/${retries - 1})`);
+				await new Promise(r => setTimeout(r, delay));
+			} else {
+				throw err;
+			}
+		}
+	}
+}
+
+const queue = [];
+let processing = false;
+
+async function processQueue() {
+	if (processing || queue.length === 0) return;
+	processing = true;
+
+	while (queue.length > 0) {
+		const handler = queue.shift();
+		try {
+			await handler();
+		} catch (err) {
+			logger.error(`Queue handler failed: ${err.message}`);
+		}
+		await new Promise(r => setTimeout(r, 1000));
+	}
+
+	processing = false;
+}
+
 bot.on(message("text"), async (ctx) => {
 	if (ctx.chat.type !== "private") return ctx.leaveChat();
 
@@ -75,42 +122,47 @@ bot.on(message("text"), async (ctx) => {
 	}
 
 	logger.info("Link:", link.url);
-	const message = await ctx.reply("Saving...");
-	const { filename, filepath } = getSavePath(link.url);
-	try {
-		await save(link.url, filepath);
 
-		logger.info("Saved as", filepath);
-		await ctx.telegram.editMessageText(
-			ctx.chat.id,
-			message.message_id,
-			undefined,
-			format.fmt`Saved as ${format.link(
-				format.bold(filename),
-				`${env.SAVE_LINK}${filename}`
-			)}!`,
-			{
-				reply_markup: {
-					inline_keyboard: [[button.callback("Delete", `d:${filename}`)]],
-				},
-				link_preview_options: { is_disabled: true },
-			}
-		);
-	} catch (e) {
-		console.error("Unable to save", link.url, "error:", e);
-		await ctx.telegram.editMessageText(
-			ctx.chat.id,
-			message.message_id,
-			undefined,
-			format.fmt`${format.bold("Unable to save")} ${format.link(
-				filename,
-				link.url
-			)}: ${format.code(String(e))}`,
-			{
-				link_preview_options: { is_disabled: true },
-			}
-		);
-	}
+	queue.push(async () => {
+		const msg = await telegramWithRetry(() => ctx.reply("Saving..."));
+		const { filename, filepath } = getSavePath(link.url);
+		try {
+			await save(link.url, filepath);
+
+			logger.info("Saved as", filename);
+			await telegramWithRetry(() => ctx.telegram.editMessageText(
+				ctx.chat.id,
+				msg.message_id,
+				undefined,
+				format.fmt`Saved as ${format.link(
+					format.bold(filename),
+					`${env.SAVE_LINK}${filename}`
+				)}!`,
+				{
+					reply_markup: {
+						inline_keyboard: [[button.callback("Delete", `d:${filename}`)]],
+					},
+					link_preview_options: { is_disabled: true },
+				}
+			));
+		} catch (e) {
+			logger.error("Unable to save", filename, "-", e.message);
+			await telegramWithRetry(() => ctx.telegram.editMessageText(
+				ctx.chat.id,
+				msg.message_id,
+				undefined,
+				format.fmt`${format.bold("Unable to save")} ${format.link(
+					filename,
+					link.url
+				)}: ${format.code(String(e))}`,
+				{
+					link_preview_options: { is_disabled: true },
+				}
+			));
+		}
+	});
+
+	processQueue();
 });
 
 bot.on(callbackQuery("data"), async (ctx) => {
@@ -122,7 +174,7 @@ bot.on(callbackQuery("data"), async (ctx) => {
 		}
 
 		const filepath = path.join(env.SAVE_TO_PATH, filename);
-		logger.info("Deleting", filepath);
+		logger.info("Deleting", filename);
 		await fs.promises.rm(filepath);
 		await ctx.answerCbQuery("Deleted!");
 		await ctx.editMessageText("Deleted!");
@@ -143,7 +195,7 @@ if (env.WEBHOOK_URL) {
 	logger.success("Bot started in long polling mode!");
 }
 
-process.on("unhandledRejection", e => logger.error("Rejection", e))
-process.on("unhandledException", e => logger.error("Exception", e))
+process.on("unhandledRejection", e => logger.error("Unhandled rejection:", e.message))
+process.on("unhandledException", e => logger.error("Unhandled exception:", e.message))
 
 import("./status.js");

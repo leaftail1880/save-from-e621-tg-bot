@@ -21,7 +21,7 @@ export function getAgent() {
   return proxy?.agent;
 }
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 5;
 
 /**
  * @param {string} url

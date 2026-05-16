@@ -1,4 +1,5 @@
-import { socksDispatcher, setGlobalDispatcher } from "fetch-socks";
+import { socksDispatcher } from "fetch-socks";
+import { setGlobalDispatcher } from "undici";
 import { Dispatcher, fetch } from "undici";
 import { env } from "./env.js";
 import { logger } from "./logger.js";

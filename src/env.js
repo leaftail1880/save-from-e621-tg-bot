@@ -25,9 +25,9 @@ export const env = envalid.cleanEnv(process.env, {
 		desc: "Whenether to warn other users or just ignore their messages. Respected only when USER_ID is provided",
 	}),
 
-	E621_PROXY: envalid.url({
+	PROXY: envalid.url({
 		default: "https://e621.net/",
-		desc: "If e621 is blocked, uses this url as proxy",
+		desc: "SOCKS5 proxy URL for all HTTP requests (e621, Telegram, etc.)",
 	}),
 	E621_CHECK_INTERVAL_HOURS: envalid.num({
 		default: 1, // 1 hour

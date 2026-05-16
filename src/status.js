@@ -5,10 +5,6 @@ import { env } from "./env.js";
 import { httpGet } from "./fetch.js";
 import { logger } from "./logger.js";
 
-if (env.E621_CHECK_INTERVAL_HOURS === 0) {
-	export const _disabled = true;
-}
-
 const telegram = new Telegram(env.TOKEN);
 let lastIsAvailable = undefined;
 

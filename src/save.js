@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import path from "path";
+import path from "node:path";
 import { env } from "./env.js";
 import { httpGet } from "./fetch.js";
 import { logger } from "./logger.js";

@@ -145,9 +145,8 @@ bot.on(callbackQuery("data"), async (ctx) => {
 		const filename = data.split(":")[1];
 		if (!filename) return ctx.answerCbQuery("No filename to delete", { show_alert: true });
 
-		const filepath = path.join(env.SAVE_TO_PATH, filename);
 		logger.info("Deleting", filename);
-		await fs.promises.rm(filepath);
+		await fs.promises.rm(path.join(env.SAVE_TO_PATH, filename));
 		await ctx.answerCbQuery("Deleted!");
 		await ctx.editMessageText("Deleted!");
 	} else {

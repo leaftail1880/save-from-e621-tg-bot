@@ -47,6 +47,68 @@ async function telegramWithRetry(fn, retries = 3) {
 	}
 }
 
+const queue = [];
+let processing = false;
+const processedUrls = new Set();
+
+setInterval(() => {
+	if (processedUrls.size > 1000) {
+		const items = [...processedUrls];
+		processedUrls.clear();
+		items.slice(-500).forEach(url => processedUrls.add(url));
+	}
+}, 60 * 60 * 1000);
+
+async function processQueue() {
+	if (processing || queue.length === 0) return;
+	processing = true;
+
+	while (queue.length > 0) {
+		const handler = queue.shift();
+		try {
+			await handler();
+		} catch (err) {
+			logger.error("Queue handler failed:", err.message);
+		}
+		await new Promise(r => setTimeout(r, 1500));
+	}
+
+	processing = false;
+}
+
+async function handleSave(ctx, linkUrl) {
+	if (processedUrls.has(linkUrl)) return;
+	processedUrls.add(linkUrl);
+
+	logger.info("Link:", linkUrl);
+	const msg = await telegramWithRetry(() => ctx.reply("Saving..."));
+	const { filename, filepath } = getSavePath(linkUrl);
+
+	try {
+		await save(linkUrl, filepath);
+		logger.info("Saved as", filename);
+		await telegramWithRetry(() => ctx.telegram.editMessageText(
+			ctx.chat.id,
+			msg.message_id,
+			undefined,
+			format.fmt`Saved as ${format.link(format.bold(filename), `${env.SAVE_LINK}${filename}`)}!`,
+			{
+				reply_markup: { inline_keyboard: [[button.callback("Delete", `d:${filename}`)]] },
+				link_preview_options: { is_disabled: true },
+			}
+		));
+	} catch (e) {
+		logger.error("Unable to save", filename, "-", e.message);
+		await telegramWithRetry(() => ctx.telegram.editMessageText(
+			ctx.chat.id,
+			msg.message_id,
+			undefined,
+			format.fmt`${format.bold("Unable to save")} ${format.link(filename, linkUrl)}: ${format.code(String(e))}`,
+			{ link_preview_options: { is_disabled: true } }
+		));
+	}
+}
+
 bot.on(message("text"), async (ctx) => {
 	if (ctx.chat.type !== "private") return ctx.leaveChat();
 
@@ -73,33 +135,8 @@ bot.on(message("text"), async (ctx) => {
 		return ctx.error(`Unable to find link with 'static' in url! Links total count: ${entities.length}`);
 	}
 
-	logger.info("Link:", link.url);
-	const msg = await telegramWithRetry(() => ctx.reply("Saving..."));
-	const { filename, filepath } = getSavePath(link.url);
-
-	try {
-		await save(link.url, filepath);
-		logger.info("Saved as", filename);
-		await telegramWithRetry(() => ctx.telegram.editMessageText(
-			ctx.chat.id,
-			msg.message_id,
-			undefined,
-			format.fmt`Saved as ${format.link(format.bold(filename), `${env.SAVE_LINK}${filename}`)}!`,
-			{
-				reply_markup: { inline_keyboard: [[button.callback("Delete", `d:${filename}`)]] },
-				link_preview_options: { is_disabled: true },
-			}
-		));
-	} catch (e) {
-		logger.error("Unable to save", filename, "-", e.message);
-		await telegramWithRetry(() => ctx.telegram.editMessageText(
-			ctx.chat.id,
-			msg.message_id,
-			undefined,
-			format.fmt`${format.bold("Unable to save")} ${format.link(filename, link.url)}: ${format.code(String(e))}`,
-			{ link_preview_options: { is_disabled: true } }
-		));
-	}
+	queue.push(() => handleSave(ctx, link.url));
+	processQueue();
 });
 
 bot.on(callbackQuery("data"), async (ctx) => {

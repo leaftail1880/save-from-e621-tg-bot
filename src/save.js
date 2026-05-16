@@ -18,7 +18,9 @@ logger.info("Will save images to", env.SAVE_TO_PATH);
 
 export async function save(link, filepath) {
 	if (fs.existsSync(filepath)) throw new Error("File already exists!");
-	const buffer = Buffer.from(await (await httpGet(link)).arrayBuffer());
+	const res = await httpGet(link);
+	if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+	const buffer = Buffer.from(await res.arrayBuffer());
 	await fs.promises.writeFile(filepath, buffer);
 }
 

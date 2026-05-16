@@ -33,7 +33,7 @@ class MyContext extends Context {
 	}
 }
 
-export const bot = new Telegraf(env.TOKEN, { contextType: MyContext, agent: getAgent() });
+export const bot = new Telegraf(env.TOKEN, { contextType: MyContext, telegram: { agent: getAgent() } });
 
 bot.on(message("text"), async (ctx) => {
 	if (ctx.chat.type !== "private") return ctx.leaveChat();

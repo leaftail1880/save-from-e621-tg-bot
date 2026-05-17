@@ -12,161 +12,224 @@ import { getSavePath, save } from "./save.js";
 import { getAgent } from "./fetch.js";
 
 class MyContext extends Context {
-	error(text) {
-		if (this.chat?.type === "private") {
-			logger.warn("Username:", this.chat.username, "message:", this.message?.text ?? this.message, "reply:", text);
-			this.reply(text);
-		}
-	}
+  error(text) {
+    if (this.chat?.type === "private") {
+      logger.warn(
+        "Username:",
+        this.chat.username,
+        "message:",
+        this.message?.text ?? this.message,
+        "reply:",
+        text,
+      );
+      this.reply(text);
+    }
+  }
 }
 
-export const bot = new Telegraf(env.TOKEN, { contextType: MyContext, telegram: { agent: getAgent() } });
-
-bot.catch((err) => {
-	const code = err.response?.error_code;
-	if (code === 429) {
-		logger.warn("Telegram rate limited (retry after", err.response?.parameters?.retry_after ?? 5, "s)");
-	} else {
-		logger.error("Error:", err.description || err.message);
-	}
+export const bot = new Telegraf(env.TOKEN, {
+  contextType: MyContext,
+  telegram: { agent: getAgent() },
 });
 
+bot.catch((err) => {
+  const code = err.response?.error_code;
+  if (code === 429) {
+    logger.warn(
+      "Telegram rate limited (retry after",
+      err.response?.parameters?.retry_after ?? 5,
+      "s)",
+    );
+  } else {
+    logger.error("Error:", err.description || err.message);
+  }
+});
+
+/**
+ * Executes a Telegram API call with automatic retry on 429 rate limits.
+ *
+ * @param {() => Promise<any>} fn - The Telegram API call to execute
+ * @param {number} retries - Maximum number of retry attempts
+ * @returns {Promise<any>} The result of the API call
+ */
 async function telegramWithRetry(fn, retries = 3) {
-	for (let i = 0; i < retries; i++) {
-		try {
-			return await fn();
-		} catch (err) {
-			if (err.response?.error_code === 429 && i < retries - 1) {
-				const delay = (err.response.parameters?.retry_after || 5) * 1000;
-				logger.warn("Telegram 429, waiting", delay, "ms (retry", i + 1, "/", retries - 1, ")");
-				await new Promise(r => setTimeout(r, delay));
-			} else {
-				throw err;
-			}
-		}
-	}
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.response?.error_code === 429 && i < retries - 1) {
+        const delay = (err.response.parameters?.retry_after || 5) * 1000;
+        logger.warn(
+          "Telegram 429, waiting",
+          delay,
+          "ms (retry",
+          i + 1,
+          "/",
+          retries - 1,
+          ")",
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 const queue = [];
 let processing = false;
 const processedUrls = new Set();
 
-setInterval(() => {
-	if (processedUrls.size > 1000) {
-		const items = [...processedUrls];
-		processedUrls.clear();
-		items.slice(-500).forEach(url => processedUrls.add(url));
-	}
-}, 60 * 60 * 1000);
+setInterval(
+  () => {
+    if (processedUrls.size > 1000) {
+      const items = [...processedUrls];
+      processedUrls.clear();
+      items.slice(-500).forEach((url) => processedUrls.add(url));
+    }
+  },
+  60 * 60 * 1000,
+);
 
+/**
+ * Processes queued save operations sequentially to avoid Telegram rate limits.
+ */
 async function processQueue() {
-	if (processing || queue.length === 0) return;
-	processing = true;
+  if (processing || queue.length === 0) return;
+  processing = true;
 
-	while (queue.length > 0) {
-		const handler = queue.shift();
-		try {
-			await handler();
-		} catch (err) {
-			logger.error("Queue handler failed:", err.message);
-		}
-		await new Promise(r => setTimeout(r, 1500));
-	}
+  while (queue.length > 0) {
+    const handler = queue.shift();
+    try {
+      await handler();
+    } catch (err) {
+      logger.error("Queue handler failed:", err.message);
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
 
-	processing = false;
+  processing = false;
 }
 
+/**
+ * Handles downloading and saving an e621 image, with Telegram status updates.
+ *
+ * @param {import("telegraf").Context} ctx - The Telegram context
+ * @param {string} linkUrl - The URL of the image to save
+ */
 async function handleSave(ctx, linkUrl) {
-	if (processedUrls.has(linkUrl)) return;
-	processedUrls.add(linkUrl);
+  if (processedUrls.has(linkUrl)) return;
+  processedUrls.add(linkUrl);
 
-	logger.info("Link:", linkUrl);
-	const msg = await telegramWithRetry(() => ctx.reply("Saving..."));
-	const { filename, filepath } = getSavePath(linkUrl);
+  logger.info("Link:", linkUrl);
+  const msg = await telegramWithRetry(() => ctx.reply("Saving..."));
+  const { filename, filepath } = getSavePath(linkUrl);
 
-	try {
-		await save(linkUrl, filepath);
-		logger.info("Saved as", filename);
-		await telegramWithRetry(() => ctx.telegram.editMessageText(
-			ctx.chat.id,
-			msg.message_id,
-			undefined,
-			format.fmt`Saved as ${format.link(format.bold(filename), `${env.SAVE_LINK}${filename}`)}!`,
-			{
-				reply_markup: { inline_keyboard: [[button.callback("Delete", `d:${filename}`)]] },
-				link_preview_options: { is_disabled: true },
-			}
-		));
-	} catch (e) {
-		logger.error("Unable to save", filename, "-", e.message);
-		await telegramWithRetry(() => ctx.telegram.editMessageText(
-			ctx.chat.id,
-			msg.message_id,
-			undefined,
-			format.fmt`${format.bold("Unable to save")} ${format.link(filename, linkUrl)}: ${format.code(String(e))}`,
-			{ link_preview_options: { is_disabled: true } }
-		));
-	}
+  try {
+    await save(linkUrl, filepath);
+    logger.info("Saved as", filename);
+    await telegramWithRetry(() =>
+      ctx.telegram.editMessageText(
+        ctx.chat.id,
+        msg.message_id,
+        undefined,
+        format.fmt`Saved as ${format.link(format.bold(filename), `${env.SAVE_LINK}${filename}`)}!`,
+        {
+          reply_markup: {
+            inline_keyboard: [[button.callback("Delete", `d:${filename}`)]],
+          },
+          link_preview_options: { is_disabled: true },
+        },
+      ),
+    );
+  } catch (e) {
+    logger.error("Unable to save", filename, "-", e.message);
+    await telegramWithRetry(() =>
+      ctx.telegram.editMessageText(
+        ctx.chat.id,
+        msg.message_id,
+        undefined,
+        format.fmt`${format.bold("Unable to save")} ${format.link(filename, linkUrl)}: ${format.code(String(e))}`,
+        { link_preview_options: { is_disabled: true } },
+      ),
+    );
+  }
 }
 
 bot.on(message("text"), async (ctx) => {
-	if (ctx.chat.type !== "private") return ctx.leaveChat();
+  if (ctx.chat.type !== "private") return ctx.leaveChat();
 
-	if (env.USER_ID !== 0 && ctx.chat.id !== env.USER_ID) {
-		if (env.WARN_OTHER_USERS) ctx.error("This bot is not for you, sorry.");
-		return;
-	}
+  if (env.USER_ID !== 0 && ctx.chat.id !== env.USER_ID) {
+    if (env.WARN_OTHER_USERS) ctx.error("This bot is not for you, sorry.");
+    return;
+  }
 
-	if (ctx.message.text === "/start") {
-		logger.success("New user!", ctx.chat.username ?? `${ctx.chat.first_name} ${ctx.chat.last_name ?? "<no lastname>"}, id=${ctx.chat.id}`);
-		return ctx.reply("Rawr~ Forward me a message with static.e621.net link!");
-	}
+  if (ctx.message.text === "/start") {
+    logger.success(
+      "New user!",
+      ctx.chat.username ??
+        `${ctx.chat.first_name} ${ctx.chat.last_name ?? "<no lastname>"}, id=${ctx.chat.id}`,
+    );
+    return ctx.reply("Rawr~ Forward me a message with static.e621.net link!");
+  }
 
-	const entities = ctx.message.entities?.filter((e) => e.type === "text_link");
-	if (!entities?.length) {
-		return ctx.error("No links in message found, ensure you forwarded the right message");
-	}
+  const entities = ctx.message.entities?.filter((e) => e.type === "text_link");
+  if (!entities?.length) {
+    return ctx.error(
+      "No links in message found, ensure you forwarded the right message",
+    );
+  }
 
-	const link = entities.find(
-		(e) => e.type === "text_link" && e.url.includes("static") && !e.url.includes("/data/sample/")
-	);
+  const link = entities.find(
+    (e) =>
+      e.type === "text_link" &&
+      e.url.includes("static") &&
+      !e.url.includes("/data/sample/"),
+  );
 
-	if (!link) {
-		return ctx.error(`Unable to find link with 'static' in url! Links total count: ${entities.length}`);
-	}
+  if (!link) {
+    return ctx.error(
+      `Unable to find link with 'static' in url! Links total count: ${entities.length}`,
+    );
+  }
 
-	queue.push(() => handleSave(ctx, link.url));
-	processQueue();
+  queue.push(() => handleSave(ctx, link.url));
+  processQueue();
 });
 
 bot.on(callbackQuery("data"), async (ctx) => {
-	const data = ctx.callbackQuery.data;
-	if (data.startsWith("d:")) {
-		const filename = data.split(":")[1];
-		if (!filename) return ctx.answerCbQuery("No filename to delete", { show_alert: true });
+  const data = ctx.callbackQuery.data;
+  if (data.startsWith("d:")) {
+    const filename = data.split(":")[1];
+    if (!filename)
+      return ctx.answerCbQuery("No filename to delete", { show_alert: true });
 
-		logger.info("Deleting", filename);
-		await fs.promises.rm(path.join(env.SAVE_TO_PATH, filename));
-		await ctx.answerCbQuery("Deleted!");
-		await ctx.editMessageText("Deleted!");
-	} else {
-		logger.warn("Invalid callbackQuery data:", data);
-		ctx.answerCbQuery(`Invalid data: ${data}`);
-	}
+    logger.info("Deleting", filename);
+    await fs.promises.rm(path.join(env.SAVE_TO_PATH, filename));
+    await ctx.answerCbQuery("Deleted!");
+    await ctx.editMessageText("Deleted!");
+  } else {
+    logger.warn("Invalid callbackQuery data:", data);
+    ctx.answerCbQuery(`Invalid data: ${data}`);
+  }
 });
 
 const { username } = await bot.telegram.getMe();
 logger.info(`Bot token is for @${chalk.bold(username)}`);
 
 if (env.WEBHOOK_URL) {
-	bot.createWebhook({ domain: env.WEBHOOK_URL });
-	logger.success(`Bot started using webhook: ${env.WEBHOOK_URL}`);
+  bot.createWebhook({ domain: env.WEBHOOK_URL });
+  logger.success(`Bot started using webhook: ${env.WEBHOOK_URL}`);
 } else {
-	bot.launch();
-	logger.success("Bot started in long polling mode!");
+  bot.launch();
+  logger.success("Bot started in long polling mode!");
 }
 
-process.on("unhandledRejection", (e) => logger.error("Unhandled rejection:", e.message));
-process.on("uncaughtException", (e) => logger.error("Unhandled exception:", e.message));
+process.on("unhandledRejection", (e) =>
+  logger.error("Unhandled rejection:", e.message),
+);
+process.on("uncaughtException", (e) =>
+  logger.error("Unhandled exception:", e.message),
+);
 
 import("./status.js");
